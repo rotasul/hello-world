@@ -1,0 +1,154 @@
+<?php
+
+/*****************  FILL FILE  ************************************
+
+    Use with carefull is a dangerous script
+                  
+    a fast fill file PHP script with some ascii string like 'x' or other
+    
+    i.e.: a 342 Bytes file is
+    binary 101010110
+    reverse binary
+      0    1    1    0    1   0    1   0    1
+    concatenation loops
+           1    1         2        2        2
+      
+************************************************ by rotasul.net */
+
+header ('Content-type: text/html; charset=UTF-8');
+$slash = '/';
+function cron(){
+	$time = microtime(); 
+	$time = explode(' ', $time); 
+	return $time[1] + $time[0];
+}
+
+function d_time($dif){
+	if ($dif < 1e-3 ) $time = round( $dif * 1e6, 0).' &#956;s'; 
+	if ($dif > 1e-3 && $dif < 1 ) $time = round( $dif * 1000, 0).' ms';
+	if ($dif > 1 ) $time = round( $dif, 1).' s'; 
+	return $time;
+}
+
+
+function fill_file($dir,$slash,$file_name,$will_fill){
+
+    $fill_string = 'x';
+    $accum = '';
+    $file = $dir.$slash.$file_name;
+    $pos = $pos_prev = 0;
+    $file_size = filesize($file);
+    
+    if($will_fill == 'yes'){
+        if($file_size > 0){
+            $size_in_rev_arr = str_split(strrev(decbin($file_size)));
+            foreach($size_in_rev_arr as $bin){
+                if($bin == 1){
+                    for($i = $pos_prev; $i < $pos; ++$i) $fill_string .= $fill_string;
+                    $accum .= $fill_string;
+                    $pos_prev = $pos;
+                }
+                ++$pos;
+            }
+            file_put_contents($file,$accum);
+            $file .= ' &nbsp; size = '.$file_size.' B ok filled! ';
+        } else $file .= ' &nbsp; size = 0 B the fill was not necessary! ';
+    } else $file .= ' &nbsp; just scan! ';
+    
+    return $file.'<br/>';
+}
+
+function whois($dir,$slash,$x,$file_type,$sb,$fill){
+	$ret = '';
+	$path = (strlen($x) > 0) ? $dir.$slash.$x : $dir;
+	if(is_dir($path)){
+		$u = scandir($path);
+		foreach($u as $file_name){
+			if($file_name != '.' && $file_name != '..'){
+				if(is_dir ($path.$slash.$file_name)) $sb = whois($path,$slash,$file_name,$file_type,$sb,$fill);
+                if(strstr($file_name,$file_type) || $file_type == '.all'){
+                    if(is_file($path.$slash.$file_name)){
+                        $sb[$path][$file_name] = fill_file($path,$slash,$file_name,$fill);	
+                    }
+                }
+			}
+		}
+	}
+    return $sb;
+}
+
+$start = cron();
+
+$dirget = $flag_dir = $flag_file = $file_type = $u = '';
+$renf = array();
+
+if (isset($_GET['dirtoget']) && isset($_GET['filetype'])){
+
+	$dirget = trim($_GET['dirtoget']);
+	if(strstr($dirget,'./') || strlen($dirget) < 4) $dirget = '';
+	if(strlen($dirget) > 1 && is_dir($dirget)) $flag_dir = 'ok';
+	    else  $u = '<h3 class="red_bg">Typed in dir: '.$_GET['dirtoget'].'</h3>';
+
+	$file_type = trim($_GET['filetype']);
+	$file_type = strtolower($file_type);
+	if( strlen($file_type) > 1 && $file_type[0] == '.') $flag_file = 'ok';
+}
+
+
+if($flag_dir = 'ok' && $flag_file == 'ok' ){
+    
+	$fill = ($_GET['fill'] == 'yes') ? 'yes' : 'no';
+	
+	$renf = whois($dirget,$slash,'',$file_type,$renf,$fill);
+    $final_time = d_time(cron() - $start);
+    
+    if (sizeof ($renf) > 0){
+        $k = 0;
+        ksort($renf);
+        foreach ($renf as $dir => $files){
+            $u .= '<h3>'.$dir.'</h3>';		
+            foreach ($files as $file){
+                 $u .= ' &nbsp;&nbsp;&nbsp; => &nbsp; '.$file.'';
+                 ++$k;
+            }
+        }
+    }
+}
+
+
+$dirget = (strlen($dirget) > 0) ? $dirget : '/media/ram/aa';
+$file_type = (strlen($file_type) > 0) ? $file_type : '.all';
+
+echo '<html><head>
+<link href="z.css" rel="stylesheet" type="text/css"/>
+</head><body class="body_white">
+<blockquote class="sn_block gray">
+<h1 class="sn_title"><a href="fill_files.php" target="_self">Fill Files</a></h1>
+<font class="gray">
+in Dir and Subdirs
+<br/>
+<form method="get" action="fill_files.php" target="_self">
+	<b>path:</b><br/>
+	<input name="dirtoget" value="'.$dirget.'" type="text" size="44">
+	<br/>
+	Linux**  /local/dir/name &nbsp; &nbsp; Win  e:/to_test
+	<br/><br/>
+	<b>file extension:</b><br/>
+	<input name="filetype" value="'.$file_type.'" type="text" size="8">
+	<br/>
+	put one i.e.: .pdf .gif .htm .html &nbsp;&nbsp; or <b>&nbsp; .all &nbsp;</b> (to all files extensions)
+	<br/><br/>
+    <b>Are you sure to fill?</b><br/>
+	<input name="fill" value="no" type="radio" > no ... just scan &nbsp; &nbsp; &nbsp;
+	<input name="fill" value="yes" type="radio"checked>  <span class="red">Aufpassen, no back way ... yes fill! </span>
+    <br/>
+	<br/>
+    <input value=" fill files " type="submit">
+</form>
+	<br/>
+<hr/>
+'.$k.' files in '.$final_time.'<br/>
+<div class="p09">'.$u.'</div>
+<br/></blockquote><br/>
+</body></html>';
+?>
